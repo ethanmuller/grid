@@ -98,7 +98,7 @@ function enterVR() {
 if ('xr' in navigator) {
     // Create the VR button and add event listener
     const vrButton = document.createElement('button');
-    vrButton.textContent = 'Enter VR';
+    vrButton.textContent = 'Open Session';
     vrButton.id = 'vr-button';
     vrButton.addEventListener('click', enterVR);
     document.querySelector('#buttonholder')?.appendChild(vrButton);
