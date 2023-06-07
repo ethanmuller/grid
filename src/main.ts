@@ -1,7 +1,7 @@
 import './style.css'
 import * as THREE from 'three';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   <div>
     <div class="card" id="buttonholder">
     </div>
