@@ -29,11 +29,32 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background: #fc0;
-  color: black;
+  background: #000;
+  color: #fff;
+  flex-direction: column;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 #app {
+    width: 100%;
+    background: #fc0;
+    color: #000;
+    align-self: stretch;
+}
+
+@media (min-width: 768px) {
+  body  {
+        flex-direction: row;
+    }
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 h1 {

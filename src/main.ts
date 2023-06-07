@@ -5,9 +5,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div>
     <div class="card" id="buttonholder">
     </div>
-    <ul>
-        <li>next: add vr hand</li>
-    </ul>
   </div>
 `
 
@@ -23,16 +20,19 @@ document.body.appendChild( renderer.domElement );
 
 renderer.xr.enabled = true;
 
-const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+const geometry = new THREE.BoxGeometry( 0.1, 0.1, 0.1 );
 const material = new THREE.MeshNormalMaterial();
 const cube = new THREE.Mesh( geometry, material );
 scene.add( cube );
 
-camera.position.z = 5;
+
+const spacer = 0.75;
+
+camera.position.z = spacer;
 
 function step() {
-	cube.rotation.x += 0.01;
-	cube.rotation.y += 0.01;
+	cube.rotation.x += 0.001;
+	cube.rotation.y += 0.001;
 }
 
 function animateOnPage() {
@@ -50,7 +50,7 @@ renderer.setAnimationLoop( function () {
 animateOnPage();
 
 const cameraGroup = new THREE.Group();
-cameraGroup.position.set(0, -1, 5);  // Set the initial VR Headset Position.
+cameraGroup.position.set(0, -1, spacer);  // Set the initial VR Headset Position.
 
 //When user turn on the VR mode.
 renderer.xr.addEventListener('sessionstart', function () {
