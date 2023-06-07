@@ -8,9 +8,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="card" id="buttonholder">
       <button id="counter" type="button"></button>
     </div>
-    <p class="read-the-docs">
-    next: add vr hand
-    </p>
+    <ul>
+        <li>next: better enter button</li>
+        <li>next: add vr hand</li>
+    </ul>
   </div>
 `
 
@@ -53,3 +54,17 @@ renderer.setAnimationLoop( function () {
 } );
 
 animateOnPage();
+
+const cameraGroup = new THREE.Group();
+cameraGroup.position.set(0, -1, 5);  // Set the initial VR Headset Position.
+
+//When user turn on the VR mode.
+renderer.xr.addEventListener('sessionstart', function () {
+    scene.add(cameraGroup);
+    cameraGroup.add(camera);
+});
+//When user turn off the VR mode.
+renderer.xr.addEventListener('sessionend', function () {
+    scene.remove(cameraGroup);
+    cameraGroup.remove(camera);
+});
