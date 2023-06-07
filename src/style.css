@@ -29,7 +29,11 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background: purple;
+  background: #fc0;
+  color: black;
+}
+
+#app {
 }
 
 h1 {
@@ -102,4 +106,10 @@ button:focus-visible {
     color: white;
     font-size: 3rem;
     font-weight: bold;
+}
+
+#msg {
+    background: white;
+    padding: 2rem;
+    color: gray;
 }
