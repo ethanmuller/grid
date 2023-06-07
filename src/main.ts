@@ -1,10 +1,18 @@
 import './style.css'
 import * as THREE from 'three';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+
+const handModelFactory = new XRHandModelFactory();
+
 
 document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   <div>
     <div class="card" id="buttonholder">
     </div>
+    <ul>
+    <li>add hand model</li>
+    <li>add pinch events</li>
   </div>
 `
 
