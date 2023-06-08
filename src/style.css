@@ -128,3 +128,14 @@ button:focus-visible {
     padding: 2rem;
     color: gray;
 }
+
+#log {
+    text-align: left;
+    width: 100%;
+    white-space: pre;
+    opacity: 0.3;
+}
+
+ul {
+    text-align: left;
+}

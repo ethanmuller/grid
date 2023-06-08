@@ -1,21 +1,33 @@
+// renderer
+// scene
+// camera
+
 import './style.css'
 import * as THREE from 'three';
-import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
-
-const handModelFactory = new XRHandModelFactory();
-
 
 document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   <div>
     <div class="card" id="buttonholder">
     </div>
     <ul>
-    <li>add hand model</li>
-    <li>add pinch events</li>
+        <li>next up:</li>
+        <li>show log within Session</li>
+        <li>add hand model</li>
+        <ul>
+            <li>renderer.xr.getHand(0)</li>
+            <li>put a cube in it</li>
+            <li>add to cameragroup</li>
+        </ul>
+        <li>add pinch events</li>
+        <li>visualize how code depends on other code</li>
+    </ul>
+    <pre id="log"></pre>
   </div>
 `
 
+function log(msg) {
+    document.querySelector('#log')!.innerHTML += `${msg}\n`
+}
 
 
 const scene = new THREE.Scene();
@@ -24,6 +36,11 @@ const camera = new THREE.PerspectiveCamera( 75, window.innerWidth*0.666 / window
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth*0.666, window.innerHeight );
 
+const hand1 = renderer.xr.getHand( 0 );
+//hand1.addEventListener( 'pinchstart', onPinchStartLeft );
+scene.add( hand1 );
+console.log(hand1)
+
 document.body.appendChild( renderer.domElement );
 
 renderer.xr.enabled = true;
@@ -31,8 +48,9 @@ renderer.xr.enabled = true;
 const geometry = new THREE.BoxGeometry( 0.1, 0.1, 0.1 );
 const material = new THREE.MeshNormalMaterial();
 const cube = new THREE.Mesh( geometry, material );
-scene.add( cube );
+const cube2 = new THREE.Mesh( geometry, material );
 
+scene.add( cube, cube2 );
 
 const spacer = 0.75;
 
@@ -62,11 +80,13 @@ cameraGroup.position.set(0, -1, spacer);  // Set the initial VR Headset Position
 
 //When user turn on the VR mode.
 renderer.xr.addEventListener('sessionstart', function () {
+    log('SESSION STARTED')
     scene.add(cameraGroup);
     cameraGroup.add(camera);
 });
 //When user turn off the VR mode.
 renderer.xr.addEventListener('sessionend', function () {
+    log('SESSION ENDED')
     scene.remove(cameraGroup);
     cameraGroup.remove(camera);
 });
@@ -104,6 +124,9 @@ function enterVR() {
 }
 
 if ('xr' in navigator) {
+    log('LOGGING ACTIVATED');
+    log('PLEASE BEGIN SESSION');
+
     // Create the VR button and add event listener
     const vrButton = document.createElement('button');
     vrButton.textContent = 'Open Session';
