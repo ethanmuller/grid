@@ -1,64 +1,119 @@
-// renderer
-// scene
-// camera
-
 import './style.css'
 import * as THREE from 'three';
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 
 document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   <div>
     <div class="card" id="buttonholder">
+    <div style="font-size:3em; margin: 3rem;">🥽</div>
     </div>
-    <ul>
-        <li>next up:</li>
-        <li>show log within Session</li>
-        <li>add hand model</li>
-        <ul>
-            <li>renderer.xr.getHand(0)</li>
-            <li>put a cube in it</li>
-            <li>add to cameragroup</li>
-        </ul>
-        <li>add pinch events</li>
-        <li>visualize how code depends on other code</li>
-    </ul>
     <pre id="log"></pre>
   </div>
 `
 
-function log(msg) {
+function log(msg:String) {
     document.querySelector('#log')!.innerHTML += `${msg}\n`
+    console.log(msg)
 }
-
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth*0.666 / window.innerHeight, 0.1, 1000 );
+camera.position.set(0, 1.6, 0);
 
-const renderer = new THREE.WebGLRenderer();
+const listener = new THREE.AudioListener();
+camera.add( listener );
+const audioLoader = new THREE.AudioLoader();
+
+const bomp = new THREE.PositionalAudio( listener );
+const tik = new THREE.PositionalAudio( listener );
+const dot = new THREE.PositionalAudio( listener );
+const bgm = new THREE.Audio( listener );
+
+audioLoader.load( 'bomp.wav', function( buffer ) {
+    bomp.setBuffer( buffer );
+    bomp.setRefDistance( 100 );
+    bgm.setVolume(0.6);
+    cursorA.add(bomp);
+});
+
+audioLoader.load( 'tik.wav', function( buffer ) {
+    tik.setBuffer( buffer );
+    dot.setBuffer( buffer );
+    tik.setRefDistance( 100 );
+    bgm.setVolume(0.6);
+    dot.setVolume( 0.1 );
+    bgm.setPlaybackRate(1.5)
+    dot.setPlaybackRate(0.5)
+    cursorA.add(bomp);
+});
+
+audioLoader.load( 'crossbit-v1.mp3', function( buffer ) {
+    bgm.setBuffer( buffer );
+    bgm.setVolume(0.1);
+    bgm.setPlaybackRate(1 - Math.random())
+});
+
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize( window.innerWidth*0.666, window.innerHeight );
-
-const hand1 = renderer.xr.getHand( 0 );
-//hand1.addEventListener( 'pinchstart', onPinchStartLeft );
-scene.add( hand1 );
-console.log(hand1)
 
 document.body.appendChild( renderer.domElement );
 
 renderer.xr.enabled = true;
 
-const geometry = new THREE.BoxGeometry( 0.1, 0.1, 0.1 );
+const gridSize = 0.05;
+const cubeSize = gridSize;
+
+const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
 const material = new THREE.MeshNormalMaterial();
-const cube = new THREE.Mesh( geometry, material );
-const cube2 = new THREE.Mesh( geometry, material );
+const m = new THREE.MeshStandardMaterial({ emissive: 0xffffff });
 
-scene.add( cube, cube2 );
 
-const spacer = 0.75;
+const cursorGeometryX = new THREE.BoxGeometry(cubeSize*1.5, cubeSize*0.05, cubeSize*0.05);
+const cursorGeometryY = new THREE.BoxGeometry(cubeSize*0.05, cubeSize*1.5, cubeSize*0.05);
+const cursorGeometryZ = new THREE.BoxGeometry(cubeSize*0.05, cubeSize*0.05, cubeSize*1.5);
 
-camera.position.z = spacer;
+const cursorX = new THREE.Mesh( cursorGeometryX, m );
+const cursorY = new THREE.Mesh( cursorGeometryY, m );
+const cursorZ = new THREE.Mesh( cursorGeometryZ, m );
+
+const cursorA = new THREE.Group();
+cursorA.add(cursorX, cursorY, cursorZ);
+//cursorA.scale.multiplyScalar(0.5);
+//
+const cursorB = cursorA.clone();
+
+scene.add( cursorA, cursorB );
+
+let controller1 = new THREE.Group();
+let controller2 = new THREE.Group();
+
+const lastSnappedPos = new THREE.Vector3();
+
+let drag1 = null;
+
+
+function snapToGrid(position: THREE.Vector3) {
+    const snappedX = Math.round(position.x / gridSize) * gridSize;
+    const snappedY = Math.round(position.y / gridSize) * gridSize;
+    const snappedZ = Math.round(position.z / gridSize) * gridSize;
+    return new THREE.Vector3(snappedX, snappedY, snappedZ);
+}
 
 function step() {
-	cube.rotation.x += 0.001;
-	cube.rotation.y += 0.001;
+    // this moves the cube around based on hand position
+    cursorA.position.copy(snapToGrid(controller1.position));
+    if (!lastSnappedPos.equals(cursorA.position)) {
+        dot.play();
+        lastSnappedPos.copy(cursorA.position);
+    }
+
+    cursorB.position.copy(snapToGrid(controller2.position));
+    if (!lastSnappedPos.equals(cursorB.position)) {
+        dot.play();
+        lastSnappedPos.copy(cursorB.position);
+    }
 }
 
 function animateOnPage() {
@@ -75,20 +130,16 @@ renderer.setAnimationLoop( function () {
 
 animateOnPage();
 
-const cameraGroup = new THREE.Group();
-cameraGroup.position.set(0, -1, spacer);  // Set the initial VR Headset Position.
-
 //When user turn on the VR mode.
 renderer.xr.addEventListener('sessionstart', function () {
     log('SESSION STARTED')
-    scene.add(cameraGroup);
-    cameraGroup.add(camera);
+    bgm.setPlaybackRate(1.2 - Math.random())
+    bgm.play()
 });
 //When user turn off the VR mode.
 renderer.xr.addEventListener('sessionend', function () {
     log('SESSION ENDED')
-    scene.remove(cameraGroup);
-    cameraGroup.remove(camera);
+    bgm.pause()
 });
 
 
@@ -123,8 +174,42 @@ function enterVR() {
   }
 }
 
+const grid: THREE.Object3D[] = [];
+
+function pinch(e: any) {
+    //log(`${Math.floor(controller1.position.x * 10)}`);
+
+
+    const snappedPosition = snapToGrid(e.target.position);
+
+    drag1 = new THREE.Object3D();
+    drag1.position.copy(snappedPosition);
+
+    const i = grid.findIndex(i => i.position.equals(snappedPosition));
+    const isObjectHere = i > -1;
+    if (isObjectHere) {
+        // remove what's there
+        scene.remove(grid[i])
+        grid.splice(i, 1)
+        tik.play();
+    } else {
+        // spawn a block!
+        const spawn = new THREE.Mesh( geometry, material );
+        spawn.geometry.computeBoundingSphere();
+        spawn.position.copy( snappedPosition );
+        scene.add( spawn );
+        grid.push(spawn);
+        bomp.setPlaybackRate(1 + Math.random() * 0.3)
+        bomp.play();
+    }
+}
+
+function pinchEnd(e: any) {
+    drag1 = null;
+}
+
+log('LOGGING ACTIVATED');
 if ('xr' in navigator) {
-    log('LOGGING ACTIVATED');
     log('PLEASE BEGIN SESSION');
 
     // Create the VR button and add event listener
@@ -133,6 +218,22 @@ if ('xr' in navigator) {
     vrButton.id = 'vr-button';
     vrButton.addEventListener('click', enterVR);
     document.querySelector('#buttonholder')?.appendChild(vrButton);
+
+    controller1 = renderer.xr.getController( 0 );
+    scene.add( controller1 );
+
+    controller2 = renderer.xr.getController( 1 );
+    scene.add( controller2 );
+
+
+    controller1.addEventListener( 'selectstart',  pinch );
+    controller1.addEventListener( 'selectend',  pinchEnd );
+
+    controller2.addEventListener( 'selectstart',  pinch );
+    controller2.addEventListener( 'selectend',  pinchEnd );
+
+    const geometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
+     
 } else {
     // Create the VR button and add event listener
     const msg = document.createElement('div');

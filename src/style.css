@@ -139,3 +139,7 @@ button:focus-visible {
 ul {
     text-align: left;
 }
+#buttonholder {
+    display: flex;
+    align-items: center;
+}
