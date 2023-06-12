@@ -133,7 +133,10 @@ button:focus-visible {
     text-align: left;
     width: 100%;
     white-space: pre;
-    opacity: 0.3;
+
+    background: #00f;
+    color: white;
+    padding: 2rem;
 }
 
 ul {
