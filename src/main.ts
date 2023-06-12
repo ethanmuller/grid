@@ -9,6 +9,12 @@ document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
     <div style="font-size:3em; margin: 3rem;">🥽</div>
     </div>
     <pre id="log"></pre>
+    <div style="opacity: 0.6; display: none;">
+    <h1 style="font-size: 1rem; text-align: left;margin-top: 4rem;">Known Bugs</h1>
+    <ul>
+    <li>Sometimes blocks get stuck red</li>
+    </ul>
+    </div>
   </div>
 `
 
@@ -33,7 +39,7 @@ const bgm = new THREE.Audio( listener );
 const dragAddA = new THREE.PositionalAudio( listener );
 const dragDeleteA = new THREE.PositionalAudio( listener );
 
-const grid: THREE.Object3D[] = [];
+const grid: THREE.Mesh[] = [];
 
 audioLoader.load( 'bomp.wav', function( buffer ) {
     bomp.setBuffer( buffer );
@@ -88,7 +94,7 @@ const gridSize = 0.1;
 const cubeSize = gridSize;
 
 const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-const material = new THREE.MeshNormalMaterial();
+const normalMaterial = new THREE.MeshNormalMaterial();
 const hotWhite = new THREE.MeshStandardMaterial({ emissive: 0xffffff });
 const hotRed = new THREE.MeshStandardMaterial({ emissive: 0xff0000 });
 
@@ -101,12 +107,13 @@ const cursorX = new THREE.Mesh( cursorGeometryX, hotWhite );
 const cursorY = new THREE.Mesh( cursorGeometryY, hotWhite );
 const cursorZ = new THREE.Mesh( cursorGeometryZ, hotWhite );
 
-const dragCursor = new THREE.Mesh( cubeGeometry, hotWhite );
-dragCursor.scale.set(cubeSize * 0.5, cubeSize * 0.5, cubeSize * 0.5);
 const cursorA = new THREE.Group();
+
 cursorA.add(cursorX, cursorY, cursorZ);
-scene.add(dragCursor);
-//cursorA.scale.multiplyScalar(0.5);
+
+// a box we use to show the result of the dragging action
+const dragCursorA = new THREE.Mesh( cubeGeometry, hotWhite );
+scene.add(dragCursorA);
 
 const cursorB = cursorA.clone();
 
@@ -146,49 +153,60 @@ function step() {
         const dragMovement = new THREE.Vector3();
         dragMovement.subVectors(cursorPosSnappedA, dragStartA.position);
         const axisSnappedDrag = createLargestComponentVector(dragMovement.clone()).add(dragStartA.position)
-
+        const intScaledVector = axisSnappedDrag.clone().multiplyScalar(10)
+        const howManySpacesDragged = Math.round(intScaledVector.length());
         cursorA.position.copy(axisSnappedDrag);
+        dragCursorA.position.copy(axisSnappedDrag);
+        const s = cursorPosSnappedA.clone().sub(dragStartA.position).multiplyScalar(10)
+        dragCursorA.scale.x = s.x;
     }
 
     const didMoveBetweenGridCells = !lastSnappedA.equals(cursorA.position)
 
     if (didMoveBetweenGridCells) {
         if (dragStartA) {
-            dragCursor.visible = false;
-            dragCursor.lookAt(cursorA.position);
-            const dist = cursorPosSnappedA.distanceTo(dragStartA.position);
 
-            dragCursor.scale.setZ(1 / gridSize * dist)
-
-            //dragCursor.position.addVectors(cursorPosSnappedA, dragStartA.position).multiplyScalar(0.5);
-            //dragCursor.position.subVectors(cursorPosSnappedA, dragStartA.position);
+            const dragMovement = new THREE.Vector3();
+            dragMovement.subVectors(cursorPosSnappedA, dragStartA.position);
+            const axisSnappedDrag = createLargestComponentVector(dragMovement.clone()).add(dragStartA.position)
+            //dragCursorA.position.copy(axisSnappedDrag)
+            const intScaledVector = axisSnappedDrag.clone().multiplyScalar(10)
+            const int = Math.round(intScaledVector.length());
+            //dragCursorA.scale.x = axisSnappedDrag.multiplyScalar(int).length()
 
             if (dragActionA === Verbs.Add) {
                 dragAddA.stop();
-                dragAddA.setPlaybackRate(4 + dist*4);
+                dragAddA.setPlaybackRate(4);
                 dragAddA.play();
             } else if (dragActionA === Verbs.Delete) {
                 dragDeleteA.stop();
-                dragDeleteA.setPlaybackRate(4 + dist*4);
+                dragDeleteA.setPlaybackRate(4);
                 dragDeleteA.play();
             }
 
         } else {
+            grid.forEach((i) => {
+                i.material = normalMaterial
+            })
+
             const i = grid.findIndex(i => i.position.equals(cursorPosSnappedA));
             const isObjectHere = i > -1;
 
             if (isObjectHere) {
                 dotA.stop();
-                dotA.setPlaybackRate(0.2);
+                dotA.setPlaybackRate(0.1);
                 dotA.play();
                 dragActionA = Verbs.Delete
+                grid[i].material = hotRed
             } else {
                 dotA.stop();
                 dotA.setPlaybackRate(0.5);
                 dotA.play();
                 dragActionA = Verbs.Add
             }
+
         }
+
         lastSnappedA.copy(cursorA.position);
     }
 
@@ -201,6 +219,14 @@ function step() {
             dragActionA = Verbs.Add
         } else {
             dragActionA = Verbs.Delete
+
+            grid.forEach((i) => {
+                i.material = normalMaterial
+            })
+
+            runForEachCellBetween(cursorPosSnappedA, dragStartA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                redCubeAt(point)
+            })
         }
     }
     if (!didMoveBetweenGridCells && !dragStartA) {
@@ -227,14 +253,14 @@ function step() {
             cursorX.material = hotWhite;
             cursorY.material = hotWhite;
             cursorZ.material = hotWhite;
-            dragCursor.material = hotWhite;
+            dragCursorA.material = hotWhite;
             break;
         }
         case Verbs.Delete: {
             cursorX.material = hotRed;
             cursorY.material = hotRed;
             cursorZ.material = hotRed;
-            dragCursor.material = hotRed;
+            dragCursorA.material = hotRed;
             break;
         }
     }
@@ -301,19 +327,17 @@ function enterVR() {
 function pinch(e: any) {
     cursorA.visible = false;
     const snappedPosition = snapToGrid(e.target.position);
+    dragCursorA.visible = true;
 
     dragStartA = new THREE.Object3D();
-
-    if (dragStartA) {
-        dragStartA.position.copy(snappedPosition);
-    }
+    dragStartA.position.copy(snappedPosition);
+    dragCursorA.position.copy(dragStartA.position)
 
     const i = grid.findIndex(i => i.position.equals(snappedPosition));
     const isObjectHere = i > -1;
     if (isObjectHere) {
         deleteCubeAt(snappedPosition)
         tik.play();
-        dragCursor.visible = false;
     } else {
         spawnCubeAt(snappedPosition)
         bomp.setPlaybackRate(1 + Math.random() * 0.3)
@@ -360,7 +384,7 @@ function spawnCubeAt(v: THREE.Vector3) {
     const i = grid.findIndex(i => i.position.equals(p));
     const isObjectHere = i > -1;
     if (!isObjectHere) {
-        const spawn = new THREE.Mesh( cubeGeometry, material );
+        const spawn = new THREE.Mesh( cubeGeometry, normalMaterial );
         spawn.geometry.computeBoundingSphere();
         spawn.position.copy(p);
         scene.add( spawn );
@@ -377,6 +401,45 @@ function deleteCubeAt(v: THREE.Vector3) {
     }
 }
 
+function redCubeAt(v: THREE.Vector3) {
+    const i = grid.findIndex(i => i.position.equals(snapToGrid(v)));
+    const isObjectHere = i > -1;
+    if (isObjectHere) {
+        grid[i].material = hotRed;
+    }
+}
+
+function resetCubeAt(v: THREE.Vector3) {
+    const i = grid.findIndex(i => i.position.equals(snapToGrid(v)));
+    const isObjectHere = i > -1;
+    if (isObjectHere) {
+        grid[i].material = normalMaterial;
+    }
+}
+
+function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function): Array<THREE.Mesh> {
+    // this lets us modify each mesh that falls between one point and another,
+    // where we snap to the first anchor to help prevent aliasing
+    const diff = new THREE.Vector3().subVectors(a, b);
+    const axisSnappedLine = createLargestComponentVector(diff)
+    const dir = axisSnappedLine.clone().normalize();
+    const intScaledVector = axisSnappedLine.clone().multiplyScalar(10)
+    const int = Math.round(intScaledVector.length());
+    log(`running loop ${int} times`)
+    for (let i = 1; i <= int; i++) {
+        const insertionPoint:THREE.Vector3 = dir.clone().multiplyScalar(i).divideScalar(10)
+        insertionPoint.add(b)
+
+        const indexInGrid = grid.findIndex(i => i.position.equals(insertionPoint));
+        let mesh;
+        if (indexInGrid > 0) {
+            mesh = grid[i]
+        }
+
+        cb(mesh, insertionPoint, int, axisSnappedLine)
+    }
+}
+
 function pinchEnd(e: any) {
     cursorA.visible = true;
 
@@ -386,38 +449,20 @@ function pinchEnd(e: any) {
         const didMoveBetweenGridCells = !dragStartA.position.equals(cursorPosSnappedA)
 
         if (didMoveBetweenGridCells) {
-            const dragMovement = new THREE.Vector3();
-            dragMovement.subVectors(cursorPosSnappedA, dragStartA.position);
-            const pos = createLargestComponentVector(dragMovement.clone().multiplyScalar(10))
-            const dir = pos.clone().normalize();
-            const v = dragMovement.clone().multiplyScalar(10)
-            const n = Math.round(v.length())
-            log(`repeat this many times: ${n}`)
-            log(`in this direction: ${Math.floor( dir.x )} y: ${Math.floor( dir.y )} z: ${Math.floor( dir.z )}`)
-            //log(n)
-
 
             if (dragActionA === Verbs.Add) {
                 bomp.setPlaybackRate(1 + Math.random() * 0.3)
                 bomp.play();
-
-
-                for (let i = 1; i <= n; i++) {
-                    const insertionPoint = dir.clone().multiplyScalar(i).divideScalar(10)
-                    insertionPoint.add(dragStartA.position)
-                    spawnCubeAt(insertionPoint)
-                }
-
+                runForEachCellBetween(cursorPosSnappedA, dragStartA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                    spawnCubeAt(point)
+                })
             }
 
             if (dragActionA === Verbs.Delete) {
                 tik.play();
-
-                for (let i = 1; i <= n; i++) {
-                    const insertionPoint = dir.clone().multiplyScalar(i).divideScalar(10)
-                    insertionPoint.add(dragStartA.position)
-                    deleteCubeAt(insertionPoint)
-                }
+                runForEachCellBetween(cursorPosSnappedA, dragStartA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                    deleteCubeAt(point)
+                })
             }
 
         }
@@ -432,7 +477,7 @@ function pinchEnd(e: any) {
 
     dragStartA = null;
     dragActionA = null;
-    dragCursor.visible = false;
+    dragCursorA.visible = false;
 }
 
 log('LOGGING ACTIVATED');
