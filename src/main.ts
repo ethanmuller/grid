@@ -10,7 +10,7 @@ document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
     <div style="font-size:3em; margin: 3rem;">🥽</div>
     </div>
     <pre id="log"></pre>
-    <div style="opacity: 0.6; display: block;">
+    <div style="opacity: 0.6; display: none;">
     <h1 style="font-size: 1rem; text-align: left;margin-top: 4rem;">Issues</h1>
     <ul>
     <li>visual feedback is not shown for dragging to add blocks</li>
@@ -27,10 +27,12 @@ function log(msg:String) {
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth*0.666 / window.innerHeight, 0.1, 1000 );
-camera.position.set(0, 1.6, 0);
+//camera.position.set(0, 1.6, 0);
 
+const ears = new THREE.Group()
 const listener = new THREE.AudioListener();
-camera.add( listener );
+ears.add( listener );
+scene.add(ears);
 const audioLoader = new THREE.AudioLoader();
 
 const bomp = new THREE.PositionalAudio( listener );
@@ -81,7 +83,7 @@ audioLoader.load( 'tik.wav', function( buffer ) {
 
 audioLoader.load( 'crossbit-v1.mp3', function( buffer ) {
     bgm.setBuffer( buffer );
-    bgm.setVolume(0);
+    bgm.setVolume(0.1);
     bgm.setPlaybackRate(1 - Math.random())
 });
 
@@ -132,7 +134,7 @@ const dragDiff = new THREE.Mesh( cubeGeometry, hotWhite );
 const dragDiffPivot = new THREE.Group();
 dragDiffPivot.add(dragDiff)
 dragDiff.geometry.computeBoundingSphere();
-dragDiff.scale.set(1,1,1)
+dragDiff.scale.set(1.01,1.01,1.01)
 dragDiff.position.add(new THREE.Vector3(0, 0, 1).multiplyScalar(cubeSize))
 scene.add(dragDiffPivot)
 
@@ -151,7 +153,17 @@ function snapToGrid(position: THREE.Vector3) {
     return new THREE.Vector3(snappedX, snappedY, snappedZ);
 }
 
+function snapNumberToGrid(length: number) {
+    const snapped = Math.round(length / gridSize) * gridSize;
+    return snapped;
+}
+
 function step() {
+    const cams = renderer.xr.getCamera()
+    if (cams) {
+        log('yes')
+    }
+
     // this moves the cube around based on hand position
     const cursorPosSnappedA = snapToGrid(controllerA.position);
 
@@ -163,15 +175,20 @@ function step() {
         // when it is snapped to its most prominent vector direction
         // Relative to where the drag started
         diff = new THREE.Vector3().subVectors(cursorPosSnappedA, dragPointA.position)
-        if (diff.length() < cubeSize) {
+        axisSnapped = createLargestComponentVector(diff)
+        if (axisSnapped.length() < cubeSize/2) {
             dragDiffPivot.visible = false
         } else {
-            dragDiffPivot.visible = true
+            if (dragActionA === Verbs.Add) {
+                dragDiffPivot.visible = true
+            } else {
+                dragDiffPivot.visible = false
+            }
             dragDiff.position.copy(new THREE.Vector3(0, 0, 1).multiplyScalar(cubeSize))
-            dragDiff.position.add(new THREE.Vector3(0, 0, 0.5).multiplyScalar(diff.length()-1*cubeSize))
-            dragDiff.scale.setZ(1 + diff.length()*(1/cubeSize) - 1)
+            dragDiff.position.add(new THREE.Vector3(0, 0, 0.5).multiplyScalar(axisSnapped.length()-1*cubeSize))
+            dragDiff.scale.setZ(1 + snapNumberToGrid(axisSnapped.length()*(1/cubeSize)) - 1)
+            //dragDiff.scale.setZ(1 + diff.length()*(1/cubeSize) - 1)
         }
-        axisSnapped = createLargestComponentVector(diff)
         axisSnapped.add(dragPointA.position)
         cursorA.position.copy(axisSnapped);
         dragDiffPivot.lookAt(axisSnapped);
@@ -221,11 +238,19 @@ function step() {
                 grid[i].material = hotRed
             }
         } else {
-            cursorA.visible = true;
-            dotA.stop();
-            dotA.setPlaybackRate(0.5);
-            dotA.setVolume( 0.25 );
-            dotA.play();
+            if (isDraggingA) {
+                if (dragActionA === Verbs.Add) {
+                    bomp.stop();
+                    bomp.setPlaybackRate(2.2 + Math.random() * 0.3)
+                    bomp.play();
+                }
+            } else {
+                cursorA.visible = true;
+                dotA.stop();
+                dotA.setPlaybackRate(0.5);
+                dotA.setVolume( 0.25 );
+                dotA.play();
+            }
         }
     }
 
@@ -291,6 +316,7 @@ function enterVR() {
 }
 
 function pinch(e: any) {
+
     cursorA.visible = false;
     const snappedPosition = snapToGrid(e.target.position);
 
@@ -389,7 +415,6 @@ function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function)
     const dir = axisSnappedLine.clone().normalize();
     const intScaledVector = axisSnappedLine.clone().multiplyScalar(10)
     const int = Math.round(intScaledVector.length());
-    log(`running loop ${int} times`)
     for (let i = 1; i <= int; i++) {
         const insertionPoint:THREE.Vector3 = dir.clone().multiplyScalar(i).divideScalar(10)
         insertionPoint.add(b)
