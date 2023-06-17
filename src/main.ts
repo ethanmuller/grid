@@ -81,7 +81,7 @@ audioLoader.load( 'tik.wav', function( buffer ) {
     controllerA.add(deleteSoundWhileDraggingA);
 });
 
-audioLoader.load( 'crossbit-v1.mp3', function( buffer ) {
+audioLoader.load( 'crossbit-v8.mp3', function( buffer ) {
     bgm.setBuffer( buffer );
     bgm.setVolume(0.1);
     bgm.setPlaybackRate(1 - Math.random())
@@ -95,13 +95,20 @@ document.body.appendChild( renderer.domElement );
 
 renderer.xr.enabled = true;
 
-const gridSize = 0.1;
+const gridSize = 0.04;
 const cubeSize = gridSize;
 
 const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
 const normalMaterial = new THREE.MeshNormalMaterial();
 const hotWhite = new THREE.MeshStandardMaterial({ emissive: 0xffffff });
 const hotRed = new THREE.MeshStandardMaterial({ emissive: 0xff0000 });
+
+const skyGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+const skyBlue = new THREE.MeshStandardMaterial({ emissive: 0xeeeeee });
+const sky = new THREE.Mesh(skyGeo, skyBlue)
+skyBlue.side = THREE.DoubleSide
+sky.scale.set(100, 100, 100)
+scene.add(sky)
 
 
 const cursorGeometryX = new THREE.BoxGeometry(cubeSize*0.75, cubeSize*0.05, cubeSize*0.05);
@@ -413,10 +420,10 @@ function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function)
     const diff = new THREE.Vector3().subVectors(a, b);
     const axisSnappedLine = createLargestComponentVector(diff)
     const dir = axisSnappedLine.clone().normalize();
-    const intScaledVector = axisSnappedLine.clone().multiplyScalar(10)
+    const intScaledVector = axisSnappedLine.clone().multiplyScalar(1/gridSize)
     const int = Math.round(intScaledVector.length());
     for (let i = 1; i <= int; i++) {
-        const insertionPoint:THREE.Vector3 = dir.clone().multiplyScalar(i).divideScalar(10)
+        const insertionPoint:THREE.Vector3 = dir.clone().multiplyScalar(i).divideScalar(1/gridSize)
         insertionPoint.add(b)
 
         const indexInGrid = grid.findIndex(i => i.position.equals(insertionPoint));
