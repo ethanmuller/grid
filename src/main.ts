@@ -125,7 +125,7 @@ const hotWhite = new THREE.MeshStandardMaterial({ emissive: 0xffffff });
 const hotRed = new THREE.MeshStandardMaterial({ emissive: 0xff0000 });
 
 const bitMaterial = new THREE.MeshNormalMaterial();
-const skyMaterial = new THREE.MeshStandardMaterial({ emissive: 0xffee00, transparent: true });
+const skyMaterial = new THREE.MeshStandardMaterial({ emissive: 0xffcc00, transparent: true });
 
 const skyGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
 skyMaterial.opacity = 0
@@ -196,7 +196,7 @@ const dragDiff = new THREE.Mesh( cubeGeometry, hotWhite );
 const dragDiffPivot = new THREE.Group();
 dragDiffPivot.add(dragDiff)
 dragDiff.geometry.computeBoundingSphere();
-dragDiff.scale.set(1.01,1.01,1.01)
+dragDiff.scale.set(1.0, 1.0, 1.0)
 dragDiff.position.add(new THREE.Vector3(0, 0, 1).multiplyScalar(cubeSize))
 scene.add(dragDiffPivot)
 
@@ -248,7 +248,7 @@ function step() {
             }
             dragDiff.position.copy(new THREE.Vector3(0, 0, 1).multiplyScalar(cubeSize))
             dragDiff.position.add(new THREE.Vector3(0, 0, 0.5).multiplyScalar(axisSnapped.length()-1*cubeSize))
-            dragDiff.scale.setZ(1 + snapNumberToGrid(axisSnapped.length()*(1/cubeSize)) - 1)
+            dragDiff.scale.setZ(1 + axisSnapped.length()*(1/cubeSize) - 1)
             //dragDiff.scale.setZ(1 + diff.length()*(1/cubeSize) - 1)
         }
         axisSnapped.add(dragPointA.position)
