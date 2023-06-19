@@ -6,6 +6,17 @@ import { normalizePath } from 'vite';
 
 document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   <div>
+      <div class="dom-controls">
+
+      <label>
+          <span>Music</span>
+          <input type="checkbox" id="bgmInput" checked />
+      </label>
+      <label>
+          <span>Passthrough</span>
+          <input type="checkbox" id="passthroughInput" checked />
+      </label>
+      </div>
     <div class="card" id="buttonholder">
     <div style="font-size:3em; margin: 3rem;">🥽</div>
     </div>
@@ -20,9 +31,20 @@ document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   </div>
 `
 
+
 function log(msg:String) {
     document.querySelector('#log')!.innerHTML += `${msg}\n`
     console.log(msg)
+}
+
+document.getElementById('passthroughInput')?.addEventListener('change', handlePassthroughToggle)
+
+function handlePassthroughToggle(e: Event) {
+    if ((<HTMLInputElement>e.target).checked) {
+        skyMaterial.opacity = 0
+    } else {
+        skyMaterial.opacity = 1
+    }
 }
 
 const scene = new THREE.Scene();
@@ -84,7 +106,6 @@ audioLoader.load( 'tik.wav', function( buffer ) {
 audioLoader.load( 'crossbit-v8.mp3', function( buffer ) {
     bgm.setBuffer( buffer );
     bgm.setVolume(0.1);
-    bgm.setPlaybackRate(1 - Math.random())
 });
 
 
@@ -95,7 +116,7 @@ document.body.appendChild( renderer.domElement );
 
 renderer.xr.enabled = true;
 
-const gridSize = 0.04;
+const gridSize = 0.15;
 const cubeSize = gridSize;
 
 const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
@@ -103,25 +124,59 @@ const normalMaterial = new THREE.MeshNormalMaterial();
 const hotWhite = new THREE.MeshStandardMaterial({ emissive: 0xffffff });
 const hotRed = new THREE.MeshStandardMaterial({ emissive: 0xff0000 });
 
+const bitMaterial = new THREE.MeshNormalMaterial();
+const skyMaterial = new THREE.MeshStandardMaterial({ emissive: 0xffee00, transparent: true });
+
 const skyGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-const skyBlue = new THREE.MeshStandardMaterial({ emissive: 0xeeeeee });
-const sky = new THREE.Mesh(skyGeo, skyBlue)
-skyBlue.side = THREE.DoubleSide
+skyMaterial.opacity = 0
+const sky = new THREE.Mesh(skyGeo, skyMaterial)
+skyMaterial.side = THREE.DoubleSide
 sky.scale.set(100, 100, 100)
 scene.add(sky)
-
 
 const cursorGeometryX = new THREE.BoxGeometry(cubeSize*0.75, cubeSize*0.05, cubeSize*0.05);
 const cursorGeometryY = new THREE.BoxGeometry(cubeSize*0.05, cubeSize*0.75, cubeSize*0.05);
 const cursorGeometryZ = new THREE.BoxGeometry(cubeSize*0.05, cubeSize*0.05, cubeSize*0.75);
 
-const cursorX = new THREE.Mesh( cursorGeometryX, hotWhite );
-const cursorY = new THREE.Mesh( cursorGeometryY, hotWhite );
-const cursorZ = new THREE.Mesh( cursorGeometryZ, hotWhite );
-
 const cursorA = new THREE.Group();
 
-cursorA.add(cursorX, cursorY, cursorZ);
+const cornerSize = cubeSize*0.125;
+const cornerGirth = cubeSize*cubeSize*0.1;
+
+const cornerA = new THREE.Group();
+const cornerGeoA = new THREE.BoxGeometry(cornerGirth, cornerSize, cornerGirth);
+const cornerGeoB = new THREE.BoxGeometry(cornerGirth, cornerGirth, cornerSize);
+const cornerGeoC = new THREE.BoxGeometry(cornerSize, cornerGirth, cornerGirth);
+const cornerMeshA = new THREE.Mesh(cornerGeoA, hotWhite)
+const cornerMeshB = new THREE.Mesh(cornerGeoB, hotWhite)
+const cornerMeshC = new THREE.Mesh(cornerGeoC, hotWhite)
+const a = cubeSize/2 + cornerGirth/2 - cornerGirth/2
+const b = cubeSize/2 - cornerSize/2 + cornerGirth - cornerGirth/2
+cornerMeshA.position.set(a, b, a)
+cornerMeshB.position.set(a, a, b)
+cornerMeshC.position.set(b, a, a)
+cornerA.add(cornerMeshA, cornerMeshB, cornerMeshC)
+
+const cornerB = cornerA.clone()
+cornerB.rotation.z += Math.PI/2
+const cornerC = cornerB.clone()
+cornerC.rotation.z += Math.PI/2
+const cornerD = cornerC.clone()
+cornerD.rotation.z += Math.PI/2
+
+const cornerE = cornerA.clone()
+cornerE.rotation.y += Math.PI/2
+const cornerF = cornerE.clone()
+cornerF.rotation.y += Math.PI/2
+const cornerG = cornerD.clone()
+cornerG.rotation.y += Math.PI/2
+const cornerH = cornerC.clone()
+cornerH.rotation.y -= Math.PI/2
+
+//console.log(cornerA.children)
+cursorA.add(cornerA, cornerB, cornerC, cornerD, cornerE, cornerF, cornerG, cornerH)
+
+//cursorA.add(cursorX, cursorY, cursorZ);
 
 // a box we use to show the result of the dragging action
 
@@ -215,7 +270,7 @@ function step() {
 
     if (didMoveBetweenCells) {
         grid.forEach((i) => {
-            i.material = normalMaterial
+            i.material = bitMaterial
         })
 
         if (isDraggingA) {
@@ -229,6 +284,11 @@ function step() {
         const i = grid.findIndex(i => i.position.equals(snapToGrid(cursorA.position)));
         const isObjectHere = i > -1;
         if (isObjectHere) {
+            cursorA.children.forEach(corner => {
+                corner.children.forEach(mesh => {
+                    mesh.material = hotRed
+                })
+            })
             if (isDraggingA) {
                 if (dragActionA === Verbs.Delete) {
                     deleteSoundWhileDraggingA.stop();
@@ -242,9 +302,13 @@ function step() {
                 dotA.setPlaybackRate(0.1);
                 dotA.setVolume( 0.6 );
                 dotA.play();
-                grid[i].material = hotRed
             }
         } else {
+            cursorA.children.forEach(corner => {
+                corner.children.forEach(mesh => {
+                    mesh.material = hotWhite
+                })
+            })
             if (isDraggingA) {
                 if (dragActionA === Verbs.Add) {
                     bomp.stop();
@@ -252,7 +316,6 @@ function step() {
                     bomp.play();
                 }
             } else {
-                cursorA.visible = true;
                 dotA.stop();
                 dotA.setPlaybackRate(0.5);
                 dotA.setVolume( 0.25 );
@@ -281,13 +344,16 @@ animateOnPage();
 //When user turn on the VR mode.
 renderer.xr.addEventListener('sessionstart', function () {
     log('SESSION STARTED')
-    bgm.setPlaybackRate(1.2 - Math.random()*0.3)
-    bgm.play()
+    const bgmInput = document.getElementById("bgmInput")
+    if (bgmInput && bgmInput.checked) {
+        bgm.setPlaybackRate(1.2 - Math.random()*0.3)
+        bgm.play()
+    }
 });
 //When user turn off the VR mode.
 renderer.xr.addEventListener('sessionend', function () {
     log('SESSION ENDED')
-    bgm.pause()
+    bgm.stop()
 });
 
 
@@ -323,8 +389,7 @@ function enterVR() {
 }
 
 function pinch(e: any) {
-
-    cursorA.visible = false;
+    cursorA.visible = false
     const snappedPosition = snapToGrid(e.target.position);
 
     dragPointA.position.copy(snappedPosition);
@@ -337,11 +402,21 @@ function pinch(e: any) {
         deleteCubeAt(snappedPosition)
         tik.play();
         dragActionA = Verbs.Delete
+        cursorA.children.forEach(corner => {
+            corner.children.forEach(mesh => {
+                mesh.material = hotWhite
+            })
+        })
     } else {
         spawnCubeAt(snappedPosition)
         bomp.setPlaybackRate(1.2 + Math.random() * 0.3)
         bomp.play();
         dragActionA = Verbs.Add
+        cursorA.children.forEach(corner => {
+            corner.children.forEach(mesh => {
+                mesh.material = hotRed
+            })
+        })
     }
 }
 
@@ -381,7 +456,7 @@ function spawnCubeAt(v: THREE.Vector3) {
     const i = grid.findIndex(i => i.position.equals(p));
     const isObjectHere = i > -1;
     if (!isObjectHere) {
-        const spawn = new THREE.Mesh( cubeGeometry, normalMaterial );
+        const spawn = new THREE.Mesh( cubeGeometry, bitMaterial );
         spawn.geometry.computeBoundingSphere();
         spawn.position.copy(p);
         scene.add( spawn );
@@ -410,7 +485,7 @@ function resetCubeAt(v: THREE.Vector3) {
     const i = grid.findIndex(i => i.position.equals(snapToGrid(v)));
     const isObjectHere = i > -1;
     if (isObjectHere) {
-        grid[i].material = normalMaterial;
+        grid[i].material = bitMaterial;
     }
 }
 
@@ -437,6 +512,7 @@ function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function)
 }
 
 function pinchEnd(e: any) {
+    cursorA.visible = true
 
     if (isDraggingA) {
         const cursorPosSnappedA = snapToGrid(e.target.position);
@@ -448,6 +524,11 @@ function pinchEnd(e: any) {
             if (dragActionA === Verbs.Add) {
                 bomp.setPlaybackRate(1 + Math.random() * 0.3)
                 bomp.play();
+                cursorA.children.forEach(corner => {
+                    corner.children.forEach(mesh => {
+                        mesh.material = hotRed
+                    })
+                })
                 runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
                     spawnCubeAt(point)
                 })
@@ -455,6 +536,11 @@ function pinchEnd(e: any) {
 
             if (dragActionA === Verbs.Delete) {
                 tik.play();
+                cursorA.children.forEach(corner => {
+                    corner.children.forEach(mesh => {
+                        mesh.material = hotWhite
+                    })
+                })
                 runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
                     deleteCubeAt(point)
                 })
