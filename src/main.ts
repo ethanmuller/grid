@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 import { normalizePath } from 'vite';
+const v3 = THREE.Vector3;
 
 document.querySelector<HTMLDivElement>('#launcher')!.innerHTML = `
   <div>
@@ -51,10 +52,8 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth*0.666 / window.innerHeight, 0.1, 1000 );
 //camera.position.set(0, 1.6, 0);
 
-const ears = new THREE.Group()
 const listener = new THREE.AudioListener();
-ears.add( listener );
-scene.add(ears);
+camera.add( listener );
 const audioLoader = new THREE.AudioLoader();
 
 const bomp = new THREE.PositionalAudio( listener );
@@ -115,6 +114,8 @@ renderer.setSize( window.innerWidth*0.666, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
 renderer.xr.enabled = true;
+
+renderer.xr.setUserCamera(camera)
 
 const gridSize = 0.15;
 const cubeSize = gridSize;
@@ -187,8 +188,8 @@ scene.add( cursorA );
 let controllerA = new THREE.Group();
 let controllerB = new THREE.Group();
 
-const lastA = new THREE.Vector3();
-const lastSnappedB = new THREE.Vector3();
+const lastA = new v3();
+const lastSnappedB = new v3();
 
 let dragPointA = new THREE.Object3D();
 let isDraggingA: Boolean = false;
@@ -196,8 +197,8 @@ const dragDiff = new THREE.Mesh( cubeGeometry, hotWhite );
 const dragDiffPivot = new THREE.Group();
 dragDiffPivot.add(dragDiff)
 dragDiff.geometry.computeBoundingSphere();
-dragDiff.scale.set(1.0, 1.0, 1.0)
-dragDiff.position.add(new THREE.Vector3(0, 0, 1).multiplyScalar(cubeSize))
+dragDiff.scale.set(1.001, 1.001, 1.001)
+dragDiff.position.add(new v3(0, 0, 1).multiplyScalar(cubeSize))
 scene.add(dragDiffPivot)
 
 enum Verbs {
@@ -212,7 +213,7 @@ function snapToGrid(position: THREE.Vector3) {
     const snappedX = Math.round(position.x / gridSize) * gridSize;
     const snappedY = Math.round(position.y / gridSize) * gridSize;
     const snappedZ = Math.round(position.z / gridSize) * gridSize;
-    return new THREE.Vector3(snappedX, snappedY, snappedZ);
+    return new v3(snappedX, snappedY, snappedZ);
 }
 
 function snapNumberToGrid(length: number) {
@@ -221,11 +222,6 @@ function snapNumberToGrid(length: number) {
 }
 
 function step() {
-    const cams = renderer.xr.getCamera()
-    if (cams) {
-        log('yes')
-    }
-
     // this moves the cube around based on hand position
     const cursorPosSnappedA = snapToGrid(controllerA.position);
 
@@ -236,7 +232,7 @@ function step() {
         // We get the position of the cursor
         // when it is snapped to its most prominent vector direction
         // Relative to where the drag started
-        diff = new THREE.Vector3().subVectors(cursorPosSnappedA, dragPointA.position)
+        diff = new v3().subVectors(cursorPosSnappedA, dragPointA.position)
         axisSnapped = createLargestComponentVector(diff)
         if (axisSnapped.length() < cubeSize/2) {
             dragDiffPivot.visible = false
@@ -246,8 +242,8 @@ function step() {
             } else {
                 dragDiffPivot.visible = false
             }
-            dragDiff.position.copy(new THREE.Vector3(0, 0, 1).multiplyScalar(cubeSize))
-            dragDiff.position.add(new THREE.Vector3(0, 0, 0.5).multiplyScalar(axisSnapped.length()-1*cubeSize))
+            dragDiff.position.copy(new v3(0, 0, 1).multiplyScalar(cubeSize))
+            dragDiff.position.add(new v3(0, 0, 0.5).multiplyScalar(axisSnapped.length()-1*cubeSize))
             dragDiff.scale.setZ(1 + axisSnapped.length()*(1/cubeSize) - 1)
             //dragDiff.scale.setZ(1 + diff.length()*(1/cubeSize) - 1)
         }
@@ -275,7 +271,7 @@ function step() {
 
         if (isDraggingA) {
             if (dragActionA === Verbs.Delete) {
-                runForEachCellBetween(cursorA.position, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                runForEachCellBetween(cursorA.position, dragPointA.position, (mesh:THREE.Mesh, point:v3) => {
                     redCubeAt(point)
                 })
             }
@@ -389,6 +385,8 @@ function enterVR() {
 }
 
 function pinch(e: any) {
+    log('pinch')
+
     cursorA.visible = false
     const snappedPosition = snapToGrid(e.target.position);
 
@@ -445,7 +443,7 @@ function createLargestComponentVector(vector: THREE.Vector3): THREE.Vector3 {
 
   const largestComponentValue = vector[largestComponent];
 
-  const largestComponentVector = new THREE.Vector3();
+  const largestComponentVector = new v3();
   largestComponentVector[largestComponent] = largestComponentValue;
   return largestComponentVector;
 }
@@ -492,13 +490,13 @@ function resetCubeAt(v: THREE.Vector3) {
 function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function): Array<THREE.Mesh> {
     // this lets us modify each mesh that falls between one point and another,
     // where we snap to the first anchor to help prevent aliasing
-    const diff = new THREE.Vector3().subVectors(a, b);
+    const diff = new v3().subVectors(a, b);
     const axisSnappedLine = createLargestComponentVector(diff)
     const dir = axisSnappedLine.clone().normalize();
     const intScaledVector = axisSnappedLine.clone().multiplyScalar(1/gridSize)
     const int = Math.round(intScaledVector.length());
     for (let i = 1; i <= int; i++) {
-        const insertionPoint:THREE.Vector3 = dir.clone().multiplyScalar(i).divideScalar(1/gridSize)
+        const insertionPoint:v3 = dir.clone().multiplyScalar(i).divideScalar(1/gridSize)
         insertionPoint.add(b)
 
         const indexInGrid = grid.findIndex(i => i.position.equals(insertionPoint));
@@ -529,7 +527,7 @@ function pinchEnd(e: any) {
                         mesh.material = hotRed
                     })
                 })
-                runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:v3) => {
                     spawnCubeAt(point)
                 })
             }
@@ -541,7 +539,7 @@ function pinchEnd(e: any) {
                         mesh.material = hotWhite
                     })
                 })
-                runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:v3) => {
                     deleteCubeAt(point)
                 })
             }
@@ -586,7 +584,7 @@ if ('xr' in navigator) {
     // controllerB.addEventListener( 'selectstart',  pinch );
     // controllerB.addEventListener( 'selectend',  pinchEnd );
 
-    const cubeGeometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
+    const cubeGeometry = new THREE.BufferGeometry().setFromPoints( [ new v3( 0, 0, 0 ), new v3( 0, 0, - 1 ) ] );
      
 } else {
     // Create the VR button and add event listener
