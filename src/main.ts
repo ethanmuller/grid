@@ -10,8 +10,8 @@ class CursorController {
 
     constructor(xrControllerNumber: number) {
         this.controllerGroup = renderer.xr.getController(xrControllerNumber);
-        this.controllerGroup.addEventListener('pinchstart', this.handlePinchStart);
-        this.controllerGroup.addEventListener('pinchend', this.handlePinchEnd);
+        this.controllerGroup.addEventListener('selectstart', this.handlePinchStart);
+        this.controllerGroup.addEventListener('selectend', this.handlePinchEnd);
         return this;
     }
 
@@ -65,7 +65,7 @@ class CursorController {
 
         if (isDraggingA) {
             if (dragActionA === Verbs.Delete) {
-                runForEachCellBetween(cursorA.position, dragPointA.position, (mesh:THREE.Mesh, point:v3) => {
+                runForEachCellBetween(cursorA.position, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
                     redCubeAt(point)
                 })
             }
@@ -119,7 +119,6 @@ class CursorController {
     }
 
     private handlePinchStart = (e: any) => {
-        renderer.xr.getSession().end()
         log('pinch')
 
         cursorA.visible = false
@@ -559,7 +558,7 @@ function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function)
     const intScaledVector = axisSnappedLine.clone().multiplyScalar(1/gridSize)
     const int = Math.round(intScaledVector.length());
     for (let i = 1; i <= int; i++) {
-        const insertionPoint:v3 = dir.clone().multiplyScalar(i).divideScalar(1/gridSize)
+        const insertionPoint:THREE.Vector3 = dir.clone().multiplyScalar(i).divideScalar(1/gridSize)
         insertionPoint.add(b)
 
         const indexInGrid = grid.findIndex(i => i.position.equals(insertionPoint));
