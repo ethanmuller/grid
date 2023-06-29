@@ -6,11 +6,12 @@ import { normalizePath } from 'vite';
 const v3 = THREE.Vector3;
 
 class CursorController {
-    controllerGroup: THREE.XRTargetRaySpace;
+    controllerGroup: THREE.Group;
 
     constructor(xrControllerNumber: number) {
         this.controllerGroup = renderer.xr.getController(xrControllerNumber);
-        this.controllerGroup.addEventListener('pinch')
+        this.controllerGroup.addEventListener('pinchstart', this.handlePinchStart);
+        this.controllerGroup.addEventListener('pinchend', this.handlePinchEnd);
         return this;
     }
 
@@ -117,10 +118,89 @@ class CursorController {
 
     }
 
-    private handlePinchStart = (event: any) => {
+    private handlePinchStart = (e: any) => {
+        renderer.xr.getSession().end()
+        log('pinch')
+
+        cursorA.visible = false
+        const snappedPosition = snapToGrid(e.target.position);
+
+        dragPointA.position.copy(snappedPosition);
+        isDraggingA = true;
+        dragDiffPivot.position.copy(snappedPosition);
+
+        const i = grid.findIndex(i => i.position.equals(snappedPosition));
+        const isObjectHere = i > -1;
+        if (isObjectHere) {
+            deleteCubeAt(snappedPosition)
+            tik.play();
+            dragActionA = Verbs.Delete
+            cursorA.children.forEach(corner => {
+                corner.children.forEach(mesh => {
+                    mesh.material = hotWhite
+                })
+            })
+        } else {
+            spawnCubeAt(snappedPosition)
+            bomp.setPlaybackRate(1.2 + Math.random() * 0.3)
+            bomp.play();
+            dragActionA = Verbs.Add
+            cursorA.children.forEach(corner => {
+                corner.children.forEach(mesh => {
+                    mesh.material = hotRed
+                })
+            })
+        }
     };
 
-    private handlePinchEnd = (event: any) => {
+    private handlePinchEnd = (e: any) => {
+        cursorA.visible = true
+
+        if (isDraggingA) {
+            const cursorPosSnappedA = snapToGrid(e.target.position);
+
+            const didMoveBetweenGridCells = !dragPointA.position.equals(cursorPosSnappedA)
+
+            if (didMoveBetweenGridCells) {
+
+                if (dragActionA === Verbs.Add) {
+                    bomp.setPlaybackRate(1 + Math.random() * 0.3)
+                    bomp.play();
+                    cursorA.children.forEach(corner => {
+                        corner.children.forEach(mesh => {
+                            mesh.material = hotRed
+                        })
+                    })
+                    runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                        spawnCubeAt(point)
+                    })
+                }
+
+                if (dragActionA === Verbs.Delete) {
+                    tik.play();
+                    cursorA.children.forEach(corner => {
+                        corner.children.forEach(mesh => {
+                            mesh.material = hotWhite
+                        })
+                    })
+                    runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:THREE.Vector3) => {
+                        deleteCubeAt(point)
+                    })
+                }
+
+            }
+        }
+
+
+        // check if there was a drag
+        // if dragAAdd
+        //  spawn a bunch of cubes
+        // if Delete
+        //  count through each space, and if there's a cube in it, delete it
+
+        dragActionA = null;
+        isDraggingA = false;
+        dragDiffPivot.visible = false
     };
 
 }
@@ -300,7 +380,7 @@ cursorA.add(cornerA, cornerB, cornerC, cornerD, cornerE, cornerF, cornerG, corne
 scene.add( cursorA );
 
 const controllerA = new CursorController(0);
-const controllerB = new CursorController(1);
+//const controllerB = new CursorController(1);
 
 const lastA = new v3();
 const lastSnappedB = new v3();
@@ -400,39 +480,6 @@ function enterVR() {
   }
 }
 
-function pinch(e: any) {
-    log('pinch')
-
-    cursorA.visible = false
-    const snappedPosition = snapToGrid(e.target.position);
-
-    dragPointA.position.copy(snappedPosition);
-    isDraggingA = true;
-    dragDiffPivot.position.copy(snappedPosition);
-
-    const i = grid.findIndex(i => i.position.equals(snappedPosition));
-    const isObjectHere = i > -1;
-    if (isObjectHere) {
-        deleteCubeAt(snappedPosition)
-        tik.play();
-        dragActionA = Verbs.Delete
-        cursorA.children.forEach(corner => {
-            corner.children.forEach(mesh => {
-                mesh.material = hotWhite
-            })
-        })
-    } else {
-        spawnCubeAt(snappedPosition)
-        bomp.setPlaybackRate(1.2 + Math.random() * 0.3)
-        bomp.play();
-        dragActionA = Verbs.Add
-        cursorA.children.forEach(corner => {
-            corner.children.forEach(mesh => {
-                mesh.material = hotRed
-            })
-        })
-    }
-}
 
 function findLargestComponent(vector: THREE.Vector3): number {
   const largestX = Math.max(vector.x, -vector.x);
@@ -523,56 +570,6 @@ function runForEachCellBetween(a: THREE.Vector3, b: THREE.Vector3, cb: Function)
 
         cb(mesh, insertionPoint, int, axisSnappedLine)
     }
-}
-
-function pinchEnd(e: any) {
-    cursorA.visible = true
-
-    if (isDraggingA) {
-        const cursorPosSnappedA = snapToGrid(e.target.position);
-
-        const didMoveBetweenGridCells = !dragPointA.position.equals(cursorPosSnappedA)
-
-        if (didMoveBetweenGridCells) {
-
-            if (dragActionA === Verbs.Add) {
-                bomp.setPlaybackRate(1 + Math.random() * 0.3)
-                bomp.play();
-                cursorA.children.forEach(corner => {
-                    corner.children.forEach(mesh => {
-                        mesh.material = hotRed
-                    })
-                })
-                runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:v3) => {
-                    spawnCubeAt(point)
-                })
-            }
-
-            if (dragActionA === Verbs.Delete) {
-                tik.play();
-                cursorA.children.forEach(corner => {
-                    corner.children.forEach(mesh => {
-                        mesh.material = hotWhite
-                    })
-                })
-                runForEachCellBetween(cursorPosSnappedA, dragPointA.position, (mesh:THREE.Mesh, point:v3) => {
-                    deleteCubeAt(point)
-                })
-            }
-
-        }
-    }
-
-
-    // check if there was a drag
-    // if dragAAdd
-    //  spawn a bunch of cubes
-    // if Delete
-    //  count through each space, and if there's a cube in it, delete it
-
-    dragActionA = null;
-    isDraggingA = false;
-    dragDiffPivot.visible = false
 }
 
 log('LOGGING ACTIVATED');
